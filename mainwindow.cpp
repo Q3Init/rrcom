@@ -35,7 +35,6 @@ void MainWindow::on_quit_btn_clicked()
 /* 数据接收窗口 */
 void MainWindow::onReadyRead()
 {
-#if 1
     QByteArray recBuf = this->driver->serialPort.readAll();
     QString str_rev;
     if (this->hexdisplay_flag == false)
@@ -86,46 +85,11 @@ void MainWindow::onReadyRead()
     }
     ui->recv_edit->insertPlainText(str_rev);
     ui->recv_edit->moveCursor(QTextCursor::End);
-#else
-    QString buffer_1;
-    auto recv_buffer = this->driver->serialPort.readAll();
-    if(!recv_buffer.isEmpty())//如果非空说明有数据接收
-    {   //转换成16进制大写
-        QString str=recv_buffer.toHex().data();
-        str=str.toUpper();
-              //一个16进制占4位，8位为一字节，所以每两位16进制空一格
-        for(int i=0;i<str.length();i+=2)
-        {
-            QString str_1 = str.mid (i,2);
-            buffer_1 += str_1;
-            buffer_1 += " ";
-        }
-        //读取之前显示数据
-        QString new_data = ui->recv_edit->toPlainText();
-        //清空显示
-        ui->recv_edit->clear();
-        //判断16进制显示按钮状态进行显示
-        if (this->hexdisplay_flag)
-        {
-            /* 16进制显示 */
-            new_data += QString(buffer_1) + "\r\n";
-            ui->recv_edit->append(new_data);
-        }
-        else
-        {
-            /* 原始直接显示 */
-            new_data += QString(recv_buffer) + "\r\n";
-            ui->recv_edit->append(new_data);
-        }
-    }
-    recv_buffer.clear();
-#endif
 }
 
 /* 发送按钮 */
 void MainWindow::on_send_btn_released()
 {
-#if 1
     QByteArray array;
     auto dataStr = ui->send_edit->toPlainText();
     //Hex复选框
@@ -150,15 +114,6 @@ void MainWindow::on_send_btn_released()
     } else {
         qDebug() << "send fail" << Qt::endl;
     }
-#else
-    auto dataStr = ui->send_edit->toPlainText();
-    if (this->driver->serialPort.write(QByteArray::fromHex(dataStr.toLatin1().data())) > 0)
-    {
-        qDebug() << "send ok" << Qt::endl;
-    } else {
-        qDebug() << "send fail" << Qt::endl;
-    }
-#endif
 }
 
 void MainWindow::on_hexdisplay_checkBox_toggled(bool checked)
