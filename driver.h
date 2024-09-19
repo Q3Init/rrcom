@@ -24,13 +24,13 @@ public:
     ~Driver();
 
     QTimer *timer = NULL;
-    QSerialPort serialPort;
+    QSerialPort serialPort; /* 串口驱动对象 */
 
 private slots:
     void on_link_btn_clicked();
 
 signals:
-    void signal_link();
+    void driver_ui_link();
 
 private:
     Ui::Driver *ui;

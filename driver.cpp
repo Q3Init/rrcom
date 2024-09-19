@@ -80,7 +80,7 @@ void Driver::on_link_btn_clicked()
     serialPort.setParity(parity);
 
     if (serialPort.open(QIODevice::ReadWrite) == true) {
-        emit this->signal_link();
+        emit this->driver_ui_link();
     } else {
         QMessageBox::warning(this,"warning",portName + " open failed:" + serialPort.errorString());
     }

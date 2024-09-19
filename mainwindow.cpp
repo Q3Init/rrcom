@@ -7,15 +7,18 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    this->driver = new Driver;
     this->driver->show();
     /* 收到driver界面的连接成功信号 */
-    connect(this->driver,&Driver::signal_link,this,[this]{
+    connect(this->driver,&Driver::driver_ui_link,this,[this]{
         this->driver->hide();
         this->show();
     });
-    connect(&this->driver->serialPort,&QSerialPort::readyRead,this,&MainWindow::onReadyRead);
-
+    /* sender：串口，signal：串口readyRead, receiver:this, member: rxhandler */
+    connect(&this->driver->serialPort,&QSerialPort::readyRead,this,&MainWindow::rx_handler);
+    /* sender：this，signal：rx_indication, receiver:this, member: serial_data_display_window */
+    connect(this,&MainWindow::rx_indication,this,&MainWindow::serial_data_display_window);
+    /* sender：this，signal：rx_indication, receiver:this, member: ota_rx_mainfunction */
+    connect(this,&MainWindow::rx_indication,this,&MainWindow::ota_rx_mainfunction);
 }
 
 MainWindow::~MainWindow()
@@ -23,19 +26,31 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-/* 退出主菜单 */
-void MainWindow::on_quit_btn_clicked()
+/* 数据接收中断函数 */
+void MainWindow::rx_handler()
 {
-    this->hide();
-    this->driver->show();
-    /* 退出主菜单并关闭驱动 */
-    this->driver->serialPort.close();
+    qDebug() << "[rx_handler]"<< Qt::endl;
+    QByteArray recv_datas = this->driver->serialPort.readAll();
+    emit this->rx_indication(recv_datas);
+}
+
+/* ota主要接收数据处理函数 */
+void MainWindow::ota_rx_mainfunction(QByteArray datas)
+{
+    qDebug() << "[ota_rx_mainfunction]"<< Qt::endl;
+    QByteArray rx_buffer = datas;
+    /* 升级接收处理 */
+    if (this->ota_flag == true)
+    {
+        qDebug() << "升级接收处理" << rx_buffer << Qt::endl;
+    }
 }
 
 /* 数据接收窗口 */
-void MainWindow::onReadyRead()
+void MainWindow::serial_data_display_window(QByteArray datas)
 {
-    QByteArray recBuf = this->driver->serialPort.readAll();
+    qDebug() << "[serial_data_display_window]"<< Qt::endl;
+    QByteArray recBuf = datas;
     QString str_rev;
     if (this->hexdisplay_flag == false)
     {
@@ -90,6 +105,7 @@ void MainWindow::onReadyRead()
 /* 发送按钮 */
 void MainWindow::on_send_btn_released()
 {
+    qDebug() << "[on_send_btn_released]"<< Qt::endl;
     QByteArray array;
     auto dataStr = ui->send_edit->toPlainText();
     //Hex复选框
@@ -105,9 +121,7 @@ void MainWindow::on_send_btn_released()
         array.append("\r\n");
     }
     //显示到接收框
-    ui->recv_edit->insertPlainText(array);
-    ui->recv_edit->moveCursor(QTextCursor::End);
-    qDebug() << array << Qt::endl;
+
     //发送成功
     if (this->driver->serialPort.write(array) > 0) {
         qDebug() << "send ok" << Qt::endl;
@@ -116,8 +130,10 @@ void MainWindow::on_send_btn_released()
     }
 }
 
+/* 16进制显示控件槽函数 */
 void MainWindow::on_hexdisplay_checkBox_toggled(bool checked)
 {
+    qDebug() << "[on_hexdisplay_checkBox_toggled]"<< Qt::endl;
     if(checked)
     {
         // displayHex();
@@ -126,12 +142,41 @@ void MainWindow::on_hexdisplay_checkBox_toggled(bool checked)
     else
     {
         // displayText();
-        this->hexdisplay_flag = NULL;
+        this->hexdisplay_flag = false;
     }
 }
 
+/* 开始升级槽函数 */
+void MainWindow::on_start_ota_btn_toggled(bool checked)
+{
+    qDebug() << "[on_start_ota_btn_toggled]"<< Qt::endl;
+    if(checked)
+    {
+        this->ota_flag = true;
+        ui->start_ota_btn->setText("停止升级");
+    }
+    else
+    {
+        this->ota_flag = false;
+        ui->start_ota_btn->setText("开始升级");
+    }
+    qDebug() << "on_start_ota_btn_toggled, ota: "<<this->ota_flag << Qt::endl;
+}
+
+/* 退出主菜单 */
+void MainWindow::on_quit_btn_clicked()
+{
+    qDebug() << "[on_quit_btn_clicked]"<< Qt::endl;
+    this->hide();
+    this->driver->show();
+    /* 退出主菜单并关闭驱动 */
+    this->driver->serialPort.close();
+}
+
+/* 窗口数据显示hex */
 void MainWindow::displayHex()
 {
+    qDebug() << "[displayHex]"<< Qt::endl;
     //先把数据拿出来
     auto dataStr = ui->recv_edit->toPlainText();
     //转成16进制
@@ -140,8 +185,10 @@ void MainWindow::displayHex()
     ui->recv_edit->setPlainText(hexData);
 }
 
+/* 窗口数据显示text */
 void MainWindow::displayText()
 {
+    qDebug() << "[displayText]"<< Qt::endl;
     //先把数据拿出来
     auto dataStr = ui->recv_edit->toPlainText();
     //转成文本
@@ -149,4 +196,5 @@ void MainWindow::displayText()
     //写回去
     ui->recv_edit->setPlainText(textData);
 }
+
 
