@@ -17,18 +17,38 @@ MainWindow::MainWindow(QWidget *parent)
         this->driver->hide();
         this->show();
     });
-    /* sender：串口，signal：串口readyRead, receiver:this, member: rxhandler */
+    /* sender：串口, signal: 串口readyRead, receiver:this, member: rxhandler */
     connect(&this->driver->serialPort,&QSerialPort::readyRead,this,&MainWindow::rx_handler);
-    /* sender：this，signal：rx_indication, receiver:this, member: serial_data_display_window */
-    connect(this,&MainWindow::rx_indication,this,&MainWindow::serial_data_display_window);
-    /* sender：this，signal：rx_indication, receiver:this, member: InterRxindication */
-    connect(this,&MainWindow::rx_indication,this,&MainWindow::InterRxindication);
-    /* sender：this，signal：inter_rx_signal, receiver:this, member: ota_mainfunction */
+    /* sender：this, signal: rx_indication_signal, receiver:this, member: serial_data_display_window */
+    connect(this,&MainWindow::rx_indication_signal,this,&MainWindow::serial_data_display_window);
+    /* sender：this, signal: rx_indication_signal, receiver:this, member: InterRxindication */
+    connect(this,&MainWindow::rx_indication_signal,this,&MainWindow::InterRxindication);
+    /* sender：this, signal: inter_rx_signal, receiver:this, member: ota_mainfunction */
     connect(this,&MainWindow::inter_rx_signal,this,&MainWindow::ota_mainfunction);
-    /* sender：this，signal：inter_tx_signal, receiver:this, member: Inter_transmit */
+    /* sender：this, signal: inter_tx_signal, receiver:this, member: Inter_transmit */
     connect(this,&MainWindow::inter_tx_signal,this,&MainWindow::Inter_transmit);
-    /* sender：this，signal：ota_extend_session_signal, receiver:this, member: ota_extend_session */
+    /* sender：this, signal: ota_extend_session_signal, receiver:this, member: ota_extend_session */
     connect(this,&MainWindow::ota_extend_session_signal,this,&MainWindow::ota_extend_session);
+    /* sender：this, signal: ota_stop_communction_signal, receiver:this, member: ota_stop_communction */
+    connect(this,&MainWindow::ota_stop_communction_signal,this,&MainWindow::ota_stop_communction);
+    /* sender：this, signal: ota_programming_session_signal, receiver:this, member: ota_programming_session */
+    connect(this,&MainWindow::ota_programming_session_signal,this,&MainWindow::ota_programming_session);
+    /* sender：this, signal: ota_request_erase_signal, receiver:this, member: ota_request_erase */
+    connect(this,&MainWindow::ota_request_erase_signal,this,&MainWindow::ota_request_erase);
+    /* sender：this, signal: ota_request_download_signal, receiver:this, member: ota_request_download */
+    connect(this,&MainWindow::ota_request_download_signal,this,&MainWindow::ota_request_download);
+    /* sender：this, signal: ota_data_transmission_signal, receiver:this, member: ota_data_transmission */
+    connect(this,&MainWindow::ota_data_transmission_signal,this,&MainWindow::ota_data_transmission);
+    /* sender：this, signal: ota_transmission_exit_signal, receiver:this, member: ota_transmission_exit */
+    connect(this,&MainWindow::ota_transmission_exit_signal,this,&MainWindow::ota_transmission_exit);
+    /* sender：this, signal: ota_check_app_integrity_signal, receiver:this, member: ota_check_app_integrity */
+    connect(this,&MainWindow::ota_check_app_integrity_signal,this,&MainWindow::ota_check_app_integrity);
+    /* sender：this, signal: ota_software_reset_signal, receiver:this, member: ota_software_reset */
+    connect(this,&MainWindow::ota_software_reset_signal,this,&MainWindow::ota_software_reset);
+    /* sender：this, signal: ota_start_communction_signal, receiver:this, member: ota_start_communction */
+    connect(this,&MainWindow::ota_start_communction_signal,this,&MainWindow::ota_start_communction);
+    /* sender：this, signal: ota_session_presistence_signal, receiver:this, member: ota_session_presistence */
+    connect(this,&MainWindow::ota_session_presistence_signal,this,&MainWindow::ota_session_presistence);
 }
 
 MainWindow::~MainWindow()
@@ -41,7 +61,7 @@ void MainWindow::rx_handler()
 {
     qDebug() << "[rx_handler]"<< Qt::endl;
     QByteArray recv_datas = this->driver->serialPort.readAll();
-    emit this->rx_indication(recv_datas);
+    emit this->rx_indication_signal(recv_datas);
 }
 
 /* ota主要接收数据处理函数 */
@@ -324,6 +344,85 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         }
         break;
     case OTA_STOP_COMMUNCTION:
+        if (info.id.val == ID_STOP_COMMUNCTION)
+        {
+            if(info.datas[0] == ACK_OK)
+            {
+                ota_step = OTA_PROGRAMMING_SEESION;
+            }
+        }
+        break;
+    case OTA_PROGRAMMING_SEESION:
+        if (info.id.val == ID_PROGRAMMING_SESSION)
+        {
+            if(info.datas[0] == ACK_OK)
+            {
+                ota_step = OTA_REQUEST_ERASE;
+            }
+        }
+        break;
+    case OTA_REQUEST_ERASE:
+        if (info.id.val == ID_REQUEST_ERASE)
+        {
+            if(info.datas[0] == ACK_OK)
+            {
+                ota_step = OTA_REQUEST_DOWNLOAD;
+            }
+        }
+        break;
+    case OTA_REQUEST_DOWNLOAD:
+        if (info.id.val == ID_REQUEST_DOWNLOAD)
+        {
+            if(info.datas[0] == ACK_OK)
+            {
+                ota_step = OTA_DATA_TRANSMISSION;
+            }
+        }
+        break;
+    case OTA_DATA_TRANSMISSION:
+        if (info.id.val == ID_DATA_TRANSMISSION)
+        {
+            if(info.datas[0] == ACK_OK)
+            {
+                ota_step = OTA_TRANSMISSION_EXIT;
+            }
+        }
+        break;
+    case OTA_TRANSMISSION_EXIT:
+        if (info.id.val == ID_TRANSMISSION_EXIT)
+        {
+            if(info.datas[0] == ACK_OK)
+            {
+                ota_step = OTA_CHECK_APP_INTEGRITY;
+            }
+        }
+        break;
+    case OTA_CHECK_APP_INTEGRITY:
+        if (info.id.val == ID_CHECK_APP_INTEGRITY)
+        {
+            if(info.datas[0] == ACK_OK)
+            {
+                ota_step = OTA_SOFTWARE_RESET;
+            }
+        }
+        break;
+    case OTA_SOFTWARE_RESET:
+        if (info.id.val == ID_SOFTWARE_RESET)
+        {
+            if(info.datas[0] == ACK_OK)
+            {
+                ota_step = OTA_SOFTWARE_RESET;
+            }
+        }
+        break;
+    case OTA_START_COMMUNCTION:
+        if (info.id.val == ID_START_COMMUNCTION)
+        {
+            if(info.datas[0] == ACK_OK)
+            {
+                ota_step = OTA_EXTEND_SESSION;
+            }
+        }
         break;
     default:
         break;
@@ -344,6 +443,87 @@ void MainWindow::ota_stop_communction()
 {
     qDebug() << "[ota_stop_communction_signal]"<< Qt::endl;
     uint16 len = 1;
-    uint8 data = 3;
+    uint8 data = 2;
     emit this->inter_tx_signal(ID_STOP_COMMUNCTION ,len ,&data);
+}
+
+/* 编程会话功能函数 */
+void MainWindow::ota_programming_session()
+{
+    qDebug() << "[ota_programming_session]"<< Qt::endl;
+    uint16 len = 1;
+    uint8 data = 3;
+    emit this->inter_tx_signal(ID_PROGRAMMING_SESSION ,len ,&data);
+}
+
+/* 请求擦除功能函数 */
+void MainWindow::ota_request_erase()
+{
+    qDebug() << "[ota_request_erase]"<< Qt::endl;
+    uint16 len = 1;
+    uint8 data = 3;
+    emit this->inter_tx_signal(ID_REQUEST_ERASE ,len ,&data);
+}
+
+/* 请求下载功能函数 */
+void MainWindow::ota_request_download()
+{
+    qDebug() << "[ota_request_download]"<< Qt::endl;
+    uint16 len = 1;
+    uint8 data = 3;
+    emit this->inter_tx_signal(ID_REQUEST_ERASE ,len ,&data);
+}
+
+/* 数据传输功能函数 */
+void MainWindow::ota_data_transmission()
+{
+    qDebug() << "[ota_data_transmission]"<< Qt::endl;
+    uint16 len = 1;
+    uint8 data = 3;
+    emit this->inter_tx_signal(ID_DATA_TRANSMISSION ,len ,&data);
+}
+
+/* 传输退出功能函数 */
+void MainWindow::ota_transmission_exit()
+{
+    qDebug() << "[ota_transmission_exit]"<< Qt::endl;
+    uint16 len = 1;
+    uint8 data = 3;
+    emit this->inter_tx_signal(ID_TRANSMISSION_EXIT ,len ,&data);
+}
+
+/* 校验APP完整性功能函数 */
+void MainWindow::ota_check_app_integrity()
+{
+    qDebug() << "[ota_check_app_integrity]"<< Qt::endl;
+    uint16 len = 1;
+    uint8 data = 3;
+    emit this->inter_tx_signal(ID_TRANSMISSION_EXIT ,len ,&data);
+}
+
+/* 软件复位功能函数 */
+void MainWindow::ota_software_reset()
+{
+    qDebug() << "[ota_software_reset]"<< Qt::endl;
+    uint16 len = 1;
+    uint8 data = 3;
+    emit this->inter_tx_signal(ID_SOFTWARE_RESET ,len ,&data);
+}
+
+/* 开始通信功能函数 */
+void MainWindow::ota_start_communction()
+{
+    qDebug() << "[ota_start_communction]"<< Qt::endl;
+    uint16 len = 1;
+    uint8 data = 3;
+    emit this->inter_tx_signal(ID_START_COMMUNCTION ,len ,&data);
+}
+
+/* 软件复位功能函数 */
+void MainWindow::ota_session_presistence()
+{
+    qDebug() << "[ota_session_presistence]"<< Qt::endl;
+    uint16 len = 1;
+    uint8 data = 0;
+    emit this->inter_tx_signal(ID_SESSION_PERSISTENCE ,len ,&data);
 }

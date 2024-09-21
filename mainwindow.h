@@ -15,8 +15,18 @@
 #define ACK_OK 0x55
 #define ACK_N_OK 0xAA
 
-#define ID_EXTEND_SESSION 0xA3
-#define ID_STOP_COMMUNCTION 0xA4
+#define ID_EXTEND_SESSION       0xA3
+#define ID_STOP_COMMUNCTION     0xA4
+#define ID_PROGRAMMING_SESSION  0xA2
+#define ID_REQUEST_ERASE        0xA5
+#define ID_REQUEST_DOWNLOAD     0x06
+#define ID_DATA_TRANSMISSION    0xA7
+#define ID_TRANSMISSION_EXIT    0xA8
+#define ID_CHECK_APP_INTEGRITY  0xA9
+#define ID_SOFTWARE_RESET       0xAA
+#define ID_START_COMMUNCTION    0xAB
+#define ID_SESSION_PERSISTENCE  0x3E
+
 
 typedef enum
 {
@@ -52,8 +62,17 @@ typedef struct
 
 typedef enum
 {
-    OTA_EXTEND_SESSION,
+    OTA_EXTEND_SESSION = 0,
     OTA_STOP_COMMUNCTION,
+    OTA_PROGRAMMING_SEESION,
+    OTA_REQUEST_ERASE,
+    OTA_REQUEST_DOWNLOAD,
+    OTA_DATA_TRANSMISSION,
+    OTA_TRANSMISSION_EXIT,
+    OTA_CHECK_APP_INTEGRITY,
+    OTA_SOFTWARE_RESET,
+    OTA_START_COMMUNCTION,
+    OTA_SESSION_PERSISTENCE,
 }Ota_stepType;
 
 QT_BEGIN_NAMESPACE
@@ -99,10 +118,27 @@ private slots:
     void ota_extend_session();
     /* 停止设备通信功能函数 */
     void ota_stop_communction();
-
+    /* 编程会话功能函数 */
+    void ota_programming_session();
+    /* 请求擦除功能函数 */
+    void ota_request_erase();
+    /* 请求下载功能函数 */
+    void ota_request_download();
+    /* 数据传输功能函数 */
+    void ota_data_transmission();
+    /* 传输退出功能函数 */
+    void ota_transmission_exit();
+    /* 校验APP完整性功能函数 */
+    void ota_check_app_integrity();
+    /* 软件复位功能函数 */
+    void ota_software_reset();
+    /* 开始通信功能函数 */
+    void ota_start_communction();
+    /* 会话保持功能函数 */
+    void ota_session_presistence();
 signals:
     /* 数据接收中断信号 */
-    void rx_indication(QByteArray rec_buffer);
+    void rx_indication_signal(QByteArray rec_buffer);
     /* ota rx信号 */
     void inter_rx_signal(InterTpMsgType data);
     /* 数据发送信号 */
@@ -111,6 +147,24 @@ signals:
     void ota_extend_session_signal();
     /* 停止设备通信功能信号 */
     void ota_stop_communction_signal();
+    /* 编程会话功能信号 */
+    void ota_programming_session_signal();
+    /* 请求擦除功能信号 */
+    void ota_request_erase_signal();
+    /* 请求下载功能信号 */
+    void ota_request_download_signal();
+    /* 数据传输功能信号 */
+    void ota_data_transmission_signal();
+    /* 传输退出功能信号 */
+    void ota_transmission_exit_signal();
+    /* 校验APP完整性功能信号 */
+    void ota_check_app_integrity_signal();
+    /* 软件复位功能信号 */
+    void ota_software_reset_signal();
+    /* 开始通信功能信号 */
+    void ota_start_communction_signal();
+    /* 会话保持功能信号 */
+    void ota_session_presistence_signal();
 
 private:
     Ui::MainWindow *ui;
