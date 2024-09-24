@@ -5,6 +5,10 @@
 #include "driver.h"
 #include "Platform_Types.h"
 #include "crc.h"
+#include <QFileDialog>
+#include <QStandardPaths>
+#include <QFile>
+#include <QTimer>
 
 #define HEADER_CNT 1
 #define ID_CNT 1
@@ -43,7 +47,7 @@ typedef struct {
         uint8 buf[1];
     } id;
     union {
-        uint8 val;
+        uint16 val;
         uint8 buf[2];
     } dlc;
     uint8 datas[8];
@@ -75,6 +79,22 @@ typedef enum
     OTA_SESSION_PERSISTENCE,
 }Ota_stepType;
 
+typedef struct
+{
+    union {
+        uint32 val;
+        uint8 buf[4];
+    }address;
+}addressType;
+
+typedef struct
+{
+    union {
+        uint16 val;
+        uint8 buf[2];
+    }app_block_cnt;
+}APP_block_cnt_Type;
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -94,6 +114,11 @@ public:
     CRC *cal_crc = new CRC;
     bool hexdisplay_flag = NULL;
     bool ota_flag = NULL;
+    QString fileName = 0;
+
+    uint32 bcd_to_hex(uint32 bcd_data);
+    /* Qstring字符串数据  直接转为 16进制数 */
+    uint8 QString_to_uint8_buffer(QString *str,uint8 *data);
 
 private slots:
     /* 数据接收中断函数 */
@@ -136,6 +161,9 @@ private slots:
     void ota_start_communction();
     /* 会话保持功能函数 */
     void ota_session_presistence();
+    /* 打开升级文件hex槽函数 */
+    void on_open_download_file_btn_released();
+
 signals:
     /* 数据接收中断信号 */
     void rx_indication_signal(QByteArray rec_buffer);

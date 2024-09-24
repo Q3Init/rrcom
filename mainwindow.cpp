@@ -4,6 +4,8 @@
 
 static const uint8 HeaderPattern[HEADER_CNT] = {0XEE};
 static Ota_stepType ota_step = OTA_EXTEND_SESSION;
+static APP_block_cnt_Type app_block_cnt = {0};
+static qint64 file_seek_cnt = 0;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -69,7 +71,7 @@ void MainWindow::InterRxindication(QByteArray datas)
 {
     qDebug() << "[InterRxindication]"<< Qt::endl;
     rxObjType *objPtr;
-    uint8_t rx_buffer[64] = {0};
+    uint8 rx_buffer[64] = {0};
     uint8 data;
     /* 升级接收处理 */
     if (this->ota_flag == true)
@@ -337,7 +339,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
-                emit this->ota_extend_session_signal();
+                emit this->ota_stop_communction_signal();
                 ota_step = OTA_STOP_COMMUNCTION;
             }
             /* 收到扩展会话应答，触发停止通信服务信号 */
@@ -348,6 +350,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                emit this->ota_programming_session_signal();
                 ota_step = OTA_PROGRAMMING_SEESION;
             }
         }
@@ -357,6 +360,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                emit this->ota_request_erase_signal();
                 ota_step = OTA_REQUEST_ERASE;
             }
         }
@@ -366,6 +370,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                emit this->ota_request_download_signal();
                 ota_step = OTA_REQUEST_DOWNLOAD;
             }
         }
@@ -375,6 +380,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                emit this->ota_data_transmission_signal();
                 ota_step = OTA_DATA_TRANSMISSION;
             }
         }
@@ -384,6 +390,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                emit this->ota_transmission_exit_signal();
                 ota_step = OTA_TRANSMISSION_EXIT;
             }
         }
@@ -393,6 +400,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                emit this->ota_check_app_integrity_signal();
                 ota_step = OTA_CHECK_APP_INTEGRITY;
             }
         }
@@ -402,6 +410,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                emit this->ota_software_reset_signal();
                 ota_step = OTA_SOFTWARE_RESET;
             }
         }
@@ -411,6 +420,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                emit this->ota_start_communction_signal();
                 ota_step = OTA_SOFTWARE_RESET;
             }
         }
@@ -460,9 +470,20 @@ void MainWindow::ota_programming_session()
 void MainWindow::ota_request_erase()
 {
     qDebug() << "[ota_request_erase]"<< Qt::endl;
-    uint16 len = 1;
-    uint8 data = 3;
-    emit this->inter_tx_signal(ID_REQUEST_ERASE ,len ,&data);
+    QString line = 0;
+    QString hexdata = 0;
+    addressType hex_address = {0};
+    QFile file(this->fileName);
+    if (file.open(QIODevice::ReadOnly))
+    {
+        QDataStream in(&file);
+        file.seek(0);
+        line = file.readLine();
+        hexdata = line.mid(9, line.length() - 13);
+        hex_address.address.val = (this->bcd_to_hex((uint32)hexdata.toUInt()) << 16);
+    }
+    file.close();
+    emit this->inter_tx_signal(ID_REQUEST_ERASE ,sizeof(hex_address.address.val) ,hex_address.address.buf);
 }
 
 /* 请求下载功能函数 */
@@ -478,9 +499,40 @@ void MainWindow::ota_request_download()
 void MainWindow::ota_data_transmission()
 {
     qDebug() << "[ota_data_transmission]"<< Qt::endl;
-    uint16 len = 1;
-    uint8 data = 3;
-    emit this->inter_tx_signal(ID_DATA_TRANSMISSION ,len ,&data);
+    uint16 len = 0;
+    uint8 data[300];
+    QString line = 0;
+    QString recordType = 0;
+    QString hexdata = 0;
+    QFile file(fileName);
+    if (file.open(QIODevice::ReadOnly))
+    {
+        QDataStream in(&file);
+        for(int i = 0; i < 16; i++) {
+            file.seek(file_seek_cnt);
+            line = file.readLine();
+            recordType = line.mid(7,2);
+            hexdata = line.mid(9, line.length() - 13);
+            if (recordType == "0x00") {
+                if (line.length() < 45) {
+                    len+=16;
+                    file_seek_cnt+= line.length();
+                } else {
+                    len += (line.length() - 11);
+                    file_seek_cnt += line.length();
+                    break;
+                }
+            } else if (recordType == "0x01") {
+                file_seek_cnt = 0;
+            } else {
+                file_seek_cnt += line.length();
+            }
+        }
+        app_block_cnt.app_block_cnt.val++;
+        emit this->inter_tx_signal(ID_DATA_TRANSMISSION,len,data);
+    }
+    file.close();
+
 }
 
 /* 传输退出功能函数 */
@@ -526,4 +578,63 @@ void MainWindow::ota_session_presistence()
     uint16 len = 1;
     uint8 data = 0;
     emit this->inter_tx_signal(ID_SESSION_PERSISTENCE ,len ,&data);
+}
+
+/* 打开升级文件hex槽函数 */
+void MainWindow::on_open_download_file_btn_released()
+{
+    this->fileName = QFileDialog::getOpenFileName(this,tr("Open File"),QDir::currentPath(), tr("*.hex"));
+    ui->download_file_name_edit->setText(this->fileName);
+}
+
+/* Qstring字符串数据  直接转为 16进制数 */
+uint8 MainWindow::QString_to_uint8_buffer(QString *str,uint8 *data)
+{
+    uint8 ret = E_NOK;
+#if 0
+    for(int i =0; i<(str->size()); i+=2)
+    {
+        data[i/2] = str->mid(i,2).toUInt(nullptr,16);
+    }
+    ret = E_OK;
+#else
+    QByteArray byte = QByteArray::fromHex(str->toUtf8());
+    int i = 0;
+    for(quint8 s_buf : byte)
+    {
+        data[i++] = s_buf;
+    }
+    ret = E_OK;
+#endif
+    return ret;
+}
+
+uint32 MainWindow::bcd_to_hex(uint32 bcd_data)
+{
+    uint32 ret = 0;
+    if(bcd_data < 100)
+    {
+        ret = (uint32)(((bcd_data / 10) << 4) + bcd_data % 10);
+    } else if (bcd_data < 1000)
+    {
+        ret = (uint32)(((bcd_data / 100) << 8) + bcd_data % 100);
+    } else if (bcd_data < 10000)
+    {
+        ret = (uint32)(((bcd_data / 1000) << 12) + bcd_data % 1000);
+    } else if (bcd_data < 100000)
+    {
+        ret = (uint32)(((bcd_data / 10000) << 16) + bcd_data % 10000);
+    } else if (bcd_data < 1000000)
+    {
+        ret = (uint32)(((bcd_data / 100000) << 20) + bcd_data % 100000);
+    } else if (bcd_data < 100000)
+    {
+        ret = (uint32)(((bcd_data / 1000000) << 24) + bcd_data % 1000000);
+    } else if (bcd_data < 100000)
+    {
+        ret = (uint32)(((bcd_data / 10000000) << 28) + bcd_data % 10000000);
+    } else {
+        /* nothing to do */
+    }
+    return ret;
 }
