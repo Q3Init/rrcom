@@ -4,7 +4,7 @@
 
 static const uint8 HeaderPattern[HEADER_CNT] = {0XEE};
 static Ota_stepType ota_step = OTA_EXTEND_SESSION;
-static APP_block_cnt_Type app_block_cnt = {0};
+static APP_block_cnt_Type APP1 = {0};
 static qint64 file_seek_cnt = 0;
 
 MainWindow::MainWindow(QWidget *parent)
@@ -499,12 +499,17 @@ void MainWindow::ota_request_download()
 void MainWindow::ota_data_transmission()
 {
     qDebug() << "[ota_data_transmission]"<< Qt::endl;
-    uint16 len = 0;
-    uint8 data[300];
+
+    uint8 tx_buffer[300];
+    uint16 tx_buffer_index =0;
+    /* 读取hex文件参数 */
     QString line = 0;
     QString recordType = 0;
     QString hexdata = 0;
-    QFile file(fileName);
+    QFile file(this->fileName);
+    APP1.app_block_cnt.val++;
+    memcpy(tx_buffer,APP1.app_block_cnt.buf,sizeof(APP1.app_block_cnt.val));
+    tx_buffer_index +=2;
     if (file.open(QIODevice::ReadOnly))
     {
         QDataStream in(&file);
@@ -515,11 +520,13 @@ void MainWindow::ota_data_transmission()
             hexdata = line.mid(9, line.length() - 13);
             if (recordType == "0x00") {
                 if (line.length() < 45) {
-                    len+=16;
+                    this->QString_to_uint8_buffer(&hexdata,(tx_buffer + tx_buffer_index));
                     file_seek_cnt+= line.length();
+                    tx_buffer_index += (hexdata.size() /2);
                 } else {
-                    len += (line.length() - 11);
+                    this->QString_to_uint8_buffer(&hexdata,(tx_buffer + tx_buffer_index));
                     file_seek_cnt += line.length();
+                    tx_buffer_index += ((hexdata.size() /2) + (hexdata.size() % 2));
                     break;
                 }
             } else if (recordType == "0x01") {
@@ -528,11 +535,10 @@ void MainWindow::ota_data_transmission()
                 file_seek_cnt += line.length();
             }
         }
-        app_block_cnt.app_block_cnt.val++;
-        emit this->inter_tx_signal(ID_DATA_TRANSMISSION,len,data);
+        file.close();
+        emit this->inter_tx_signal(ID_DATA_TRANSMISSION,tx_buffer_index,tx_buffer);
+        memset(tx_buffer,0,sizeof(tx_buffer));
     }
-    file.close();
-
 }
 
 /* 传输退出功能函数 */
