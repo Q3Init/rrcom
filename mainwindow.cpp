@@ -6,18 +6,23 @@ static const uint8 HeaderPattern[HEADER_CNT] = {0XEE};
 static Ota_stepType ota_step = OTA_EXTEND_SESSION;
 static APP_block_cnt_Type APP1 = {0};
 static qint64 file_seek_cnt = 0;
+static bool data_transmission_comlete_flag = FALSE;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-
+    /* 初始化把lable显示一个当前时间 */
+    QString tm_init = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+    ui->main_timer_lab->setText(tm_init);
     this->driver->show();
+    this->mainwindow_timer->start(1000);
     /* 收到driver界面的连接成功信号 */
     connect(this->driver,&Driver::driver_ui_link,this,[this]{
         this->driver->hide();
         this->show();
+        this->mainwindow_timer->start();
     });
     /* sender：串口, signal: 串口readyRead, receiver:this, member: rxhandler */
     connect(&this->driver->serialPort,&QSerialPort::readyRead,this,&MainWindow::rx_handler);
@@ -51,6 +56,12 @@ MainWindow::MainWindow(QWidget *parent)
     connect(this,&MainWindow::ota_start_communction_signal,this,&MainWindow::ota_start_communction);
     /* sender：this, signal: ota_session_presistence_signal, receiver:this, member: ota_session_presistence */
     connect(this,&MainWindow::ota_session_presistence_signal,this,&MainWindow::ota_session_presistence);
+    /* sender：this->ota_timer, signal: QTimer::timeout, receiver:this, member: ota_timeout_function */
+    connect(this->ota_timer,&QTimer::timeout,this,&MainWindow::ota_timeout_function);
+    /* sender：this, signal: QTimer::timeout, receiver:this, member: mainwindow_timeout_function */
+    connect(this->mainwindow_timer,&QTimer::timeout,this,&MainWindow::mainwindow_timeout_function);
+    /* sender：this->driver->serialPort, signal: ota_session_presistence_signal, receiver:this, member: ota_session_presistence */
+    connect(&this->driver->serialPort,&QSerialPort::errorOccurred,this,&MainWindow::handleSerialError);
 }
 
 MainWindow::~MainWindow()
@@ -282,13 +293,14 @@ void MainWindow::on_start_ota_btn_toggled(bool checked)
     if(checked)
     {
         this->ota_flag = true;
-        // emit this->ota_extend_session_signal();
-        emit this->ota_data_transmission_signal();
+        emit this->ota_extend_session_signal();
+        this->ota_timer->start(2000);
         ui->start_ota_btn->setText("停止升级");
     }
     else
     {
         this->ota_flag = false;
+        this->ota_timer->stop();
         ui->start_ota_btn->setText("开始升级");
     }
     qDebug() << "on_start_ota_btn_toggled, ota: "<<this->ota_flag << Qt::endl;
@@ -340,6 +352,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                this->ota_timer->start(2000);
                 emit this->ota_stop_communction_signal();
                 ota_step = OTA_STOP_COMMUNCTION;
             }
@@ -351,6 +364,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                this->ota_timer->start(2000);
                 emit this->ota_programming_session_signal();
                 ota_step = OTA_PROGRAMMING_SEESION;
             }
@@ -361,6 +375,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                this->ota_timer->start(2000);
                 emit this->ota_request_erase_signal();
                 ota_step = OTA_REQUEST_ERASE;
             }
@@ -371,6 +386,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                this->ota_timer->start(2000);
                 emit this->ota_request_download_signal();
                 ota_step = OTA_REQUEST_DOWNLOAD;
             }
@@ -381,6 +397,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                this->ota_timer->start(2000);
                 emit this->ota_data_transmission_signal();
                 ota_step = OTA_DATA_TRANSMISSION;
             }
@@ -391,16 +408,21 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
-                emit this->ota_transmission_exit_signal();
-                ota_step = OTA_TRANSMISSION_EXIT;
+                this->ota_timer->start(2000);
+                if (data_transmission_comlete_flag== TRUE) {
+                    emit this->ota_transmission_exit_signal();
+                    ota_step = OTA_TRANSMISSION_EXIT;
+                }
             }
         }
         break;
     case OTA_TRANSMISSION_EXIT:
+        data_transmission_comlete_flag = FALSE;
         if (info.id.val == ID_TRANSMISSION_EXIT)
         {
             if(info.datas[0] == ACK_OK)
             {
+                this->ota_timer->start(2000);
                 emit this->ota_check_app_integrity_signal();
                 ota_step = OTA_CHECK_APP_INTEGRITY;
             }
@@ -411,6 +433,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                this->ota_timer->start(2000);
                 emit this->ota_software_reset_signal();
                 ota_step = OTA_SOFTWARE_RESET;
             }
@@ -421,6 +444,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                this->ota_timer->start(2000);
                 emit this->ota_start_communction_signal();
                 ota_step = OTA_SOFTWARE_RESET;
             }
@@ -431,6 +455,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
+                this->ota_timer->stop();
                 ota_step = OTA_EXTEND_SESSION;
             }
         }
@@ -546,11 +571,15 @@ void MainWindow::ota_data_transmission()
                         break;
                     }
                 } else if (recordType == "01") {
+                    data_transmission_comlete_flag = TRUE;
                     file_seek_cnt = 0;
                 } else {
                     file_seek_cnt += line.length();
                 }
             }
+        } else if (recordType == "01") {
+            data_transmission_comlete_flag = TRUE;
+            file_seek_cnt = 0;
         }
         file.close();
     }
@@ -662,3 +691,40 @@ uint32 MainWindow::bcd_to_hex(uint32 bcd_data)
     }
     return ret;
 }
+
+/* ota timeout 函数 */
+void MainWindow::ota_timeout_function()
+{
+    qDebug("ota_timeout_function");
+    ota_step = OTA_EXTEND_SESSION;
+    file_seek_cnt = 0;
+    data_transmission_comlete_flag = FALSE;
+    APP1 = {0};
+    this->ota_timer->stop();
+}
+
+/* mainwindow_timer超时函数 */
+void MainWindow::mainwindow_timeout_function()
+{
+    QString tm = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+    if (this->driver->serialPort.isOpen()) {
+        tm += " 串口状态：connect！";
+    }
+    ui->main_timer_lab->setText(tm);
+}
+
+/* 检测串口热拔插 */
+void MainWindow::handleSerialError(QSerialPort::SerialPortError error)
+{
+    /*处理串口的权限错误或设备断开错误*/
+    if (error == QSerialPort::ResourceError ||error == QSerialPort::PermissionError ||
+        error == QSerialPort::DeviceNotFoundError ||error == QSerialPort::NotOpenError) {
+        this->driver->serialPort.close();
+        this->ota_timer->stop();
+        this->mainwindow_timer->stop();
+        this->hide();
+        this->driver->show();
+        QMessageBox::critical(this, tr("Error"), tr("串口连接中断，请检查连接！"));
+    }
+}
+

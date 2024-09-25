@@ -115,6 +115,8 @@ public:
     bool hexdisplay_flag = NULL;
     bool ota_flag = NULL;
     QString fileName = 0;
+    QTimer *ota_timer = new QTimer;
+    QTimer *mainwindow_timer = new QTimer;
 
     uint32 bcd_to_hex(uint32 bcd_data);
     /* Qstring字符串数据  直接转为 16进制数 */
@@ -163,6 +165,13 @@ private slots:
     void ota_session_presistence();
     /* 打开升级文件hex槽函数 */
     void on_open_download_file_btn_released();
+    /* ota超时函数 */
+    void ota_timeout_function();
+    /* mainwindow_timer超时函数 */
+    void mainwindow_timeout_function();
+    /* 检测串口热拔插 */
+    void handleSerialError(QSerialPort::SerialPortError error);
+
 
 signals:
     /* 数据接收中断信号 */

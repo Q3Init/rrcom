@@ -1,6 +1,8 @@
 #include "driver.h"
 #include "ui_driver.h"
 
+QString portName = 0;
+
 Driver::Driver(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::Driver)
@@ -29,6 +31,7 @@ Driver::Driver(QWidget *parent)
         qInfo()<<info.description() << info.portName() << info.systemLocation();
         ui->ports_cmb->addItem(info.portName() + ":" + info.description(),info.portName());
     }
+
     /* 获取标准的波特率 */
     auto baudRates = QSerialPortInfo::standardBaudRates();
     for (auto br : baudRates)
@@ -63,7 +66,8 @@ Driver::~Driver()
 /* 连接驱动，并进入主菜单 */
 void Driver::on_link_btn_clicked()
 {
-    auto portName = ui->ports_cmb->currentData().toString();
+    //获取端口
+    portName = ui->ports_cmb->currentData().toString();
     //获取波特率
     auto baudRate = ui->baudrate_cmb->currentData().value<QSerialPort::BaudRate>();
     //获取数据位

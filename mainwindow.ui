@@ -16,6 +16,13 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout_5">
     <item row="0" column="0">
+     <widget class="QLabel" name="main_timer_lab">
+      <property name="text">
+       <string>TextLabel</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="1">
      <spacer name="horizontalSpacer">
       <property name="orientation">
        <enum>Qt::Orientation::Horizontal</enum>
@@ -28,7 +35,7 @@
       </property>
      </spacer>
     </item>
-    <item row="0" column="1">
+    <item row="0" column="2">
      <widget class="QPushButton" name="quit_btn">
       <property name="text">
        <string>退出</string>
