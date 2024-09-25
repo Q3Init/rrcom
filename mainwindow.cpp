@@ -282,7 +282,8 @@ void MainWindow::on_start_ota_btn_toggled(bool checked)
     if(checked)
     {
         this->ota_flag = true;
-        emit this->ota_extend_session_signal();
+        // emit this->ota_extend_session_signal();
+        emit this->ota_data_transmission_signal();
         ui->start_ota_btn->setText("停止升级");
     }
     else
@@ -506,39 +507,55 @@ void MainWindow::ota_data_transmission()
     QString line = 0;
     QString recordType = 0;
     QString hexdata = 0;
+    QString hexdata_len = 0;
+    uint8 hexdata_len_hex = 0;
     QFile file(this->fileName);
     APP1.app_block_cnt.val++;
     memcpy(tx_buffer,APP1.app_block_cnt.buf,sizeof(APP1.app_block_cnt.val));
+    qDebug() << "APP1.app_block_cnt.val:" << APP1.app_block_cnt.val;
     tx_buffer_index +=2;
     if (file.open(QIODevice::ReadOnly))
     {
         QDataStream in(&file);
-        for(int i = 0; i < 16; i++) {
-            file.seek(file_seek_cnt);
-            line = file.readLine();
-            recordType = line.mid(7,2);
-            hexdata = line.mid(9, line.length() - 13);
-            if (recordType == "0x00") {
-                if (line.length() < 45) {
-                    this->QString_to_uint8_buffer(&hexdata,(tx_buffer + tx_buffer_index));
-                    file_seek_cnt+= line.length();
-                    tx_buffer_index += (hexdata.size() /2);
+        file.seek(file_seek_cnt);
+        line = file.readLine();
+        recordType = line.mid(7,2);
+        if (recordType != "00") {
+            file_seek_cnt += line.length();
+        }
+        file.seek(file_seek_cnt);
+        line = file.readLine();
+        recordType = line.mid(7,2);
+        if (recordType == "00") {
+            for(int i = 0; i < 16; i++) {
+                file.seek(file_seek_cnt);
+                line = file.readLine();
+                hexdata_len = line.mid(1,2);
+                recordType = line.mid(7,2);
+                hexdata = line.mid(9, line.length() - 13);
+                this->QString_to_uint8_buffer(&hexdata_len,&hexdata_len_hex);
+                if (recordType == "00") {
+                    if (hexdata_len_hex == 0x10) {
+                        this->QString_to_uint8_buffer(&hexdata,&tx_buffer[tx_buffer_index]);
+                        file_seek_cnt+= line.length();
+                        tx_buffer_index += hexdata_len_hex;
+                    } else {
+                        this->QString_to_uint8_buffer(&hexdata,&tx_buffer[tx_buffer_index]);
+                        file_seek_cnt += line.length();
+                        tx_buffer_index += hexdata_len_hex;
+                        break;
+                    }
+                } else if (recordType == "01") {
+                    file_seek_cnt = 0;
                 } else {
-                    this->QString_to_uint8_buffer(&hexdata,(tx_buffer + tx_buffer_index));
                     file_seek_cnt += line.length();
-                    tx_buffer_index += ((hexdata.size() /2) + (hexdata.size() % 2));
-                    break;
                 }
-            } else if (recordType == "0x01") {
-                file_seek_cnt = 0;
-            } else {
-                file_seek_cnt += line.length();
             }
         }
         file.close();
-        emit this->inter_tx_signal(ID_DATA_TRANSMISSION,tx_buffer_index,tx_buffer);
-        memset(tx_buffer,0,sizeof(tx_buffer));
     }
+    emit this->inter_tx_signal(ID_DATA_TRANSMISSION,tx_buffer_index,tx_buffer);
+    memset(tx_buffer,0,sizeof(tx_buffer));
 }
 
 /* 传输退出功能函数 */
@@ -608,7 +625,8 @@ uint8 MainWindow::QString_to_uint8_buffer(QString *str,uint8 *data)
     int i = 0;
     for(quint8 s_buf : byte)
     {
-        data[i++] = s_buf;
+        data[i] = s_buf;
+        i++;
     }
     ret = E_OK;
 #endif
