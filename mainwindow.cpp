@@ -7,6 +7,7 @@ static Ota_stepType ota_step = OTA_EXTEND_SESSION;
 static APP_block_cnt_Type APP1 = {0};
 static qint64 file_seek_cnt = 0;
 static bool data_transmission_comlete_flag = FALSE;
+static uint8 req_id = 0;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -118,6 +119,15 @@ void MainWindow::InterRxindication(QByteArray datas)
                 if (objPtr->fieldBytesCnt == ID_CNT)
                 {
                     objPtr->fieldBytesCnt = 0;
+                    objPtr->step = WAIT_CMD;
+                }
+                break;
+            case WAIT_CMD:
+                objPtr->msg.cmd.buf[objPtr->fieldBytesCnt] = data;
+                objPtr->fieldBytesCnt++;
+                if (objPtr->fieldBytesCnt == CMD_CNT)
+                {
+                    objPtr->fieldBytesCnt = 0;
                     objPtr->step = WAIT_DLC;
                 }
                 break;
@@ -146,6 +156,7 @@ void MainWindow::InterRxindication(QByteArray datas)
                 {
                     if (objPtr->msg.Xor.val == this->cal_crc->apu_CRC16(rx_buffer,(datas.size() - 2)))
                     {
+                        req_id = objPtr->msg.id.val;
                         emit this->inter_rx_signal(objPtr->msg);
                     }
                     objPtr->fieldBytesCnt = 0;
@@ -163,22 +174,23 @@ void MainWindow::InterRxindication(QByteArray datas)
 }
 
 /* ota主要发送数据处理函数 */
-void MainWindow::Inter_transmit(uint8 id,uint16 len,uint8 *data)
+void MainWindow::Inter_transmit(uint8 cmd,uint16 len,uint8 *data)
 {
     qDebug() << "[Inter_transmit]"<< Qt::endl;
     uint8 interTpTransmitMsgBuf[256] = {0};
     uint16 crc = 0;
     QByteArray tx_datas;
     interTpTransmitMsgBuf[0] = HeaderPattern[0];
-    interTpTransmitMsgBuf[1] = id;
-    interTpTransmitMsgBuf[2] = (uint8)(len >> 8);
-    interTpTransmitMsgBuf[3] = (uint8)(len);
-    memcpy(interTpTransmitMsgBuf+4,data,len);
-    crc = this->cal_crc->apu_CRC16(interTpTransmitMsgBuf,len + 4);
-    interTpTransmitMsgBuf[len + 4] = (uint8)(crc >> 8);
-    interTpTransmitMsgBuf[len + 5] = (uint8)(crc);
-    tx_datas.resize(len + 6);
-    memcpy(tx_datas.data(),&interTpTransmitMsgBuf,len + 6);
+    interTpTransmitMsgBuf[1] = req_id;
+    interTpTransmitMsgBuf[2] = cmd;
+    interTpTransmitMsgBuf[3] = (uint8)(len >> 8);
+    interTpTransmitMsgBuf[4] = (uint8)(len);
+    memcpy(interTpTransmitMsgBuf+5,data,len);
+    crc = this->cal_crc->apu_CRC16(interTpTransmitMsgBuf,len + 5);
+    interTpTransmitMsgBuf[len + 5] = (uint8)(crc >> 8);
+    interTpTransmitMsgBuf[len + 6] = (uint8)(crc);
+    tx_datas.resize(len + 7);
+    memcpy(tx_datas.data(),&interTpTransmitMsgBuf,len + 7);
     if (this->driver->serialPort.write(tx_datas) > 0) {
         qDebug() << "intertp tx tx_datas:" << tx_datas.toHex() << Qt::endl;
     } else {
@@ -294,7 +306,7 @@ void MainWindow::on_start_ota_btn_toggled(bool checked)
     {
         this->ota_flag = true;
         emit this->ota_extend_session_signal();
-        this->ota_timer->start(2000);
+        this->ota_timer->start(5000);
         ui->start_ota_btn->setText("停止升级");
     }
     else
@@ -345,6 +357,9 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
 {
     qDebug() << "[ota_mainfunction]"<< Qt::endl;
     InterTpMsgType info = datas;
+    if (info.id.val != 0x01) {
+        return;
+    }
     switch(ota_step)
     {
     case OTA_EXTEND_SESSION:
@@ -352,7 +367,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
-                this->ota_timer->start(2000);
+                this->ota_timer->start(5000);
                 emit this->ota_stop_communction_signal();
                 ota_step = OTA_STOP_COMMUNCTION;
             }
@@ -364,7 +379,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
-                this->ota_timer->start(2000);
+                this->ota_timer->start(5000);
                 emit this->ota_programming_session_signal();
                 ota_step = OTA_PROGRAMMING_SEESION;
             }
@@ -375,7 +390,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
-                this->ota_timer->start(2000);
+                this->ota_timer->start(5000);
                 emit this->ota_request_erase_signal();
                 ota_step = OTA_REQUEST_ERASE;
             }
@@ -386,7 +401,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
-                this->ota_timer->start(2000);
+                this->ota_timer->start(5000);
                 emit this->ota_request_download_signal();
                 ota_step = OTA_REQUEST_DOWNLOAD;
             }
@@ -397,7 +412,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
-                this->ota_timer->start(2000);
+                this->ota_timer->start(5000);
                 emit this->ota_data_transmission_signal();
                 ota_step = OTA_DATA_TRANSMISSION;
             }
@@ -408,7 +423,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
-                this->ota_timer->start(2000);
+                this->ota_timer->start(5000);
                 if (data_transmission_comlete_flag== TRUE) {
                     emit this->ota_transmission_exit_signal();
                     ota_step = OTA_TRANSMISSION_EXIT;
@@ -422,7 +437,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
-                this->ota_timer->start(2000);
+                this->ota_timer->start(5000);
                 emit this->ota_check_app_integrity_signal();
                 ota_step = OTA_CHECK_APP_INTEGRITY;
             }
@@ -433,7 +448,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
-                this->ota_timer->start(2000);
+                this->ota_timer->start(5000);
                 emit this->ota_software_reset_signal();
                 ota_step = OTA_SOFTWARE_RESET;
             }
@@ -444,7 +459,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         {
             if(info.datas[0] == ACK_OK)
             {
-                this->ota_timer->start(2000);
+                this->ota_timer->start(5000);
                 emit this->ota_start_communction_signal();
                 ota_step = OTA_SOFTWARE_RESET;
             }

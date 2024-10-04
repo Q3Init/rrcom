@@ -12,6 +12,7 @@
 
 #define HEADER_CNT 1
 #define ID_CNT 1
+#define CMD_CNT 1
 #define DLC_CNT 2
 #define DATAS_CNT 1
 #define CRC_BYTE_CNT 2
@@ -36,6 +37,7 @@ typedef enum
 {
     WAIT_HEADER = 0,
     WAIT_ID,
+    WAIT_CMD,
     WAIT_DLC,
     WAIT_DATA,
     WAIT_XOR,
@@ -46,6 +48,10 @@ typedef struct {
         uint8 val;
         uint8 buf[1];
     } id;
+    union {
+        uint8 val;
+        uint8 buf[1];
+    } cmd;
     union {
         uint16 val;
         uint8 buf[2];
@@ -179,7 +185,7 @@ signals:
     /* ota rx信号 */
     void inter_rx_signal(InterTpMsgType data);
     /* 数据发送信号 */
-    void inter_tx_signal(uint8 id,uint16 len,uint8 *data);
+    void inter_tx_signal(uint8 cmd,uint16 len,uint8 *data);
     /* 扩展会话功能信号 */
     void ota_extend_session_signal();
     /* 停止设备通信功能信号 */
