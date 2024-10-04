@@ -208,6 +208,8 @@ signals:
     void ota_start_communction_signal();
     /* 会话保持功能信号 */
     void ota_session_presistence_signal();
+    /* ack fail信号 */
+    void ota_ack_fail();
 
 private:
     Ui::MainWindow *ui;
