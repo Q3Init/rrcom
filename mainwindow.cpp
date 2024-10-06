@@ -7,7 +7,6 @@ static Ota_stepType ota_step = OTA_EXTEND_SESSION;
 static APP_block_cnt_Type APP1 = {0};
 static qint64 file_seek_cnt = 0;
 static bool data_transmission_comlete_flag = FALSE;
-static uint8 req_id = 0;
 static rxObjType interTpReceiveObjs[0];
 
 MainWindow::MainWindow(QWidget *parent)
@@ -169,7 +168,6 @@ void MainWindow::InterRxindication(QByteArray datas)
                 {
                     if (objPtr->msg.Xor.val == this->cal_crc->apu_CRC16(rx_buffer,(datas.size() - 2)))
                     {
-                        req_id = objPtr->msg.id.val;
                         qDebug() << "WAIT_XOR";
                         qDebug() << "id" << objPtr->msg.id.val << "cmd" << objPtr->msg.cmd.val << "dlc" << objPtr->msg.dlc.val << "data" << objPtr->msg.datas[0] << "xor" << objPtr->msg.Xor.val;
                         emit this->inter_rx_signal(objPtr->msg);
@@ -196,7 +194,7 @@ void MainWindow::Inter_transmit(uint8 cmd,uint16 len,uint8 *data)
     uint16 crc = 0;
     QByteArray tx_datas;
     interTpTransmitMsgBuf[0] = HeaderPattern[0];
-    interTpTransmitMsgBuf[1] = req_id;
+    interTpTransmitMsgBuf[1] = this->bcd_to_hex(ui->rspId_line_edit->text().toUInt());
     interTpTransmitMsgBuf[2] = cmd;
     interTpTransmitMsgBuf[3] = (uint8)(len >> 8);
     interTpTransmitMsgBuf[4] = (uint8)(len);
@@ -372,7 +370,8 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
 {
     qDebug() << "[ota_mainfunction]"<< Qt::endl;
     InterTpMsgType info = datas;
-    if (info.id.val != 0x01) {
+    if (info.id.val != this->bcd_to_hex(ui->reqId_line_edit->text().toUInt())) {
+        qDebug() << "ota req id is failed!!!";
         return;
     }
     switch(ota_step)
