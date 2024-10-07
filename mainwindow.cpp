@@ -194,7 +194,7 @@ void MainWindow::Inter_transmit(uint8 cmd,uint16 len,uint8 *data)
     uint16 crc = 0;
     QByteArray tx_datas;
     interTpTransmitMsgBuf[0] = HeaderPattern[0];
-    interTpTransmitMsgBuf[1] = this->bcd_to_hex(ui->rspId_line_edit->text().toUInt());
+    interTpTransmitMsgBuf[1] = this->bcd_to_hex(ui->reqId_line_edit->text().toUInt());
     interTpTransmitMsgBuf[2] = cmd;
     interTpTransmitMsgBuf[3] = (uint8)(len >> 8);
     interTpTransmitMsgBuf[4] = (uint8)(len);
@@ -370,7 +370,7 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
 {
     qDebug() << "[ota_mainfunction]"<< Qt::endl;
     InterTpMsgType info = datas;
-    if (info.id.val != this->bcd_to_hex(ui->reqId_line_edit->text().toUInt())) {
+    if (info.id.val != this->bcd_to_hex(ui->rspId_line_edit->text().toUInt())) {
         qDebug() << "ota req id is failed!!!";
         return;
     }
