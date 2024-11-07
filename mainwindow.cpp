@@ -127,18 +127,8 @@ void MainWindow::InterRxindication(QByteArray datas)
                 if (objPtr->fieldBytesCnt == ID_CNT)
                 {
                     objPtr->fieldBytesCnt = 0;
-                    objPtr->step = WAIT_CMD;
-                    qDebug() << "WAIT_ID";
-                }
-                break;
-            case WAIT_CMD:
-                objPtr->msg.cmd.buf[objPtr->fieldBytesCnt] = data;
-                objPtr->fieldBytesCnt++;
-                if (objPtr->fieldBytesCnt == CMD_CNT)
-                {
-                    objPtr->fieldBytesCnt = 0;
                     objPtr->step = WAIT_DLC;
-                    qDebug() << "WAIT_CMD";
+                    qDebug() << "WAIT_ID";
                 }
                 break;
             case WAIT_DLC:
@@ -169,7 +159,7 @@ void MainWindow::InterRxindication(QByteArray datas)
                     if (objPtr->msg.Xor.val == this->cal_crc->apu_CRC16(rx_buffer,(datas.size() - 2)))
                     {
                         qDebug() << "WAIT_XOR";
-                        qDebug() << "id" << objPtr->msg.id.val << "cmd" << objPtr->msg.cmd.val << "dlc" << objPtr->msg.dlc.val << "data" << objPtr->msg.datas[0] << "xor" << objPtr->msg.Xor.val;
+                        qDebug() << "id" << objPtr->msg.id.val << "dlc" << objPtr->msg.dlc.val << "data" << objPtr->msg.datas[0] << "xor" << objPtr->msg.Xor.val;
                         emit this->inter_rx_signal(objPtr->msg);
                     }
                     objPtr->fieldBytesCnt = 0;
@@ -193,11 +183,12 @@ void MainWindow::Inter_transmit(uint8 cmd,uint16 len,uint8 *data)
     uint8 interTpTransmitMsgBuf[256] = {0};
     uint16 crc = 0;
     QByteArray tx_datas;
+    uint16 p_len = len + 1; /* add cmd len */
     interTpTransmitMsgBuf[0] = HeaderPattern[0];
     interTpTransmitMsgBuf[1] = this->bcd_to_hex(ui->reqId_line_edit->text().toUInt());
-    interTpTransmitMsgBuf[2] = cmd;
-    interTpTransmitMsgBuf[3] = (uint8)(len >> 8);
-    interTpTransmitMsgBuf[4] = (uint8)(len);
+    interTpTransmitMsgBuf[2] = (uint8)(p_len >> 8);
+    interTpTransmitMsgBuf[3] = (uint8)(p_len);
+    interTpTransmitMsgBuf[4] = cmd;
     memcpy(interTpTransmitMsgBuf+5,data,len);
     crc = this->cal_crc->apu_CRC16(interTpTransmitMsgBuf,len + 5);
     interTpTransmitMsgBuf[len + 5] = (uint8)(crc >> 8);
@@ -377,9 +368,9 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
     switch(ota_step)
     {
     case OTA_EXTEND_SESSION:
-        if (info.cmd.val == ID_EXTEND_SESSION)
+        if (info.datas[0] == (ID_EXTEND_SESSION + 0x40))
         {
-            if(info.datas[0] == ACK_OK)
+            if(info.datas[1] == ACK_OK)
             {
                 qDebug() << "OTA_EXTEND_SESSION";
                 this->ota_timer->start(5000);
@@ -394,9 +385,9 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         }
         break;
     case OTA_STOP_COMMUNCTION:
-        if (info.cmd.val == ID_STOP_COMMUNCTION)
+        if (info.datas[0] == (ID_STOP_COMMUNCTION + 0x40))
         {
-            if(info.datas[0] == ACK_OK)
+            if(info.datas[1] == ACK_OK)
             {
                 this->ota_timer->start(5000);
                 emit this->ota_programming_session_signal();
@@ -410,9 +401,9 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         }
         break;
     case OTA_PROGRAMMING_SEESION:
-        if (info.cmd.val == ID_PROGRAMMING_SESSION)
+        if (info.datas[0] == (ID_PROGRAMMING_SESSION + 0x40))
         {
-            if(info.datas[0] == ACK_OK)
+            if(info.datas[1] == ACK_OK)
             {
                 this->ota_timer->start(5000);
                 emit this->ota_request_erase_signal();
@@ -426,9 +417,9 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         }
         break;
     case OTA_REQUEST_ERASE:
-        if (info.cmd.val == ID_REQUEST_ERASE)
+        if (info.datas[0] == (ID_REQUEST_ERASE + 0x40))
         {
-            if(info.datas[0] == ACK_OK)
+            if(info.datas[1] == ACK_OK)
             {
                 this->ota_timer->start(5000);
                 emit this->ota_request_download_signal();
@@ -442,9 +433,9 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         }
         break;
     case OTA_REQUEST_DOWNLOAD:
-        if (info.cmd.val == ID_REQUEST_DOWNLOAD)
+        if (info.datas[0] == (ID_REQUEST_DOWNLOAD + 0x40))
         {
-            if(info.datas[0] == ACK_OK)
+            if(info.datas[1] == ACK_OK)
             {
                 this->ota_timer->start(5000);
                 emit this->ota_data_transmission_signal();
@@ -458,9 +449,9 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         }
         break;
     case OTA_DATA_TRANSMISSION:
-        if (info.cmd.val == ID_DATA_TRANSMISSION)
+        if (info.datas[0] == (ID_DATA_TRANSMISSION + 0x40))
         {
-            if(info.datas[0] == ACK_OK)
+            if(info.datas[1] == ACK_OK)
             {
                 this->ota_timer->start(5000);
                 if (data_transmission_comlete_flag== TRUE) {
@@ -477,9 +468,9 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         break;
     case OTA_TRANSMISSION_EXIT:
         data_transmission_comlete_flag = FALSE;
-        if (info.cmd.val == ID_TRANSMISSION_EXIT)
+        if (info.datas[0] == (ID_TRANSMISSION_EXIT + 0x40))
         {
-            if(info.datas[0] == ACK_OK)
+            if(info.datas[1] == ACK_OK)
             {
                 this->ota_timer->start(5000);
                 emit this->ota_check_app_integrity_signal();
@@ -493,9 +484,9 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         }
         break;
     case OTA_CHECK_APP_INTEGRITY:
-        if (info.cmd.val == ID_CHECK_APP_INTEGRITY)
+        if (info.datas[0] == (ID_CHECK_APP_INTEGRITY + 0x40))
         {
-            if(info.datas[0] == ACK_OK)
+            if(info.datas[1] == ACK_OK)
             {
                 this->ota_timer->start(5000);
                 emit this->ota_software_reset_signal();
@@ -509,9 +500,9 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         }
         break;
     case OTA_SOFTWARE_RESET:
-        if (info.cmd.val == ID_SOFTWARE_RESET)
+        if (info.datas[0] == (ID_SOFTWARE_RESET + 0x40))
         {
-            if(info.datas[0] == ACK_OK)
+            if(info.datas[1] == ACK_OK)
             {
                 this->ota_timer->start(5000);
                 emit this->ota_start_communction_signal();
@@ -525,9 +516,9 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         }
         break;
     case OTA_START_COMMUNCTION:
-        if (info.cmd.val == ID_START_COMMUNCTION)
+        if (info.datas[0] == (ID_START_COMMUNCTION + 0x40))
         {
-            if(info.datas[0] == ACK_OK)
+            if(info.datas[1] == ACK_OK)
             {
                 this->ota_timer->stop();
                 emit this->ota_ack_fail();

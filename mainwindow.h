@@ -37,7 +37,6 @@ typedef enum
 {
     WAIT_HEADER = 0,
     WAIT_ID,
-    WAIT_CMD,
     WAIT_DLC,
     WAIT_DATA,
     WAIT_XOR,
@@ -48,10 +47,6 @@ typedef struct {
         uint8 val;
         uint8 buf[1];
     } id;
-    union {
-        uint8 val;
-        uint8 buf[1];
-    } cmd;
     union {
         uint16 val;
         uint8 buf[2];
