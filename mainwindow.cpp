@@ -319,6 +319,7 @@ void MainWindow::on_start_ota_btn_toggled(bool checked)
     {
         this->ota_flag = false;
         this->ota_timer->stop();
+        emit this->ota_ack_fail();
         ui->start_ota_btn->setText("开始升级");
     }
     qDebug() << "on_start_ota_btn_toggled, ota: "<<this->ota_flag << Qt::endl;
@@ -508,7 +509,8 @@ void MainWindow::ota_request_erase()
     qDebug() << "[ota_request_erase]"<< Qt::endl;
     ui->ota_step_edit->insertPlainText("请求擦除\r\n");
     QString line = 0;
-    QString hexdata = 0;
+    QString hexdata_high = 0;
+    QString hexdata_low = 0;
     addressType hex_address = {0};
     QFile file(this->fileName);
     if (file.open(QIODevice::ReadOnly))
@@ -516,8 +518,16 @@ void MainWindow::ota_request_erase()
         QDataStream in(&file);
         file.seek(0);
         line = file.readLine();
-        hexdata = line.mid(9, line.length() - 13);
-        hex_address.address.val = (this->bcd_to_hex((uint32)hexdata.toUInt()) << 16);
+        qDebug() << "line.length()........" << line.length();
+        hexdata_high = line.mid(9, line.length() - 13);
+        qDebug() << "hexdata_high" <<(this->bcd_to_hex((uint32)hexdata_high.toUInt()) << 16);
+        file.seek(17);
+        line = file.readLine();
+        qDebug() << "line.length()........" << line.length();
+        hexdata_low = line.mid(3, 4);
+        qDebug() << "hexdata_low" << line << hexdata_low << this->bcd_to_hex((uint32)hexdata_low.toUInt());
+        hex_address.address.val = (this->bcd_to_hex((uint32)hexdata_high.toUInt()) << 16) + (this->bcd_to_hex((uint32)hexdata_low.toUInt()));
+        qDebug() << "hex_address.address.val" << hex_address.address.val;
     }
     file.close();
     emit this->inter_tx_signal(ID_REQUEST_ERASE ,sizeof(hex_address.address.val) ,hex_address.address.buf);
@@ -720,7 +730,7 @@ void MainWindow::mainwindow_timeout_function()
 {
     QString tm = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
     if (this->ota_flag == TRUE) {
-        // emit this->ota_session_presistence_signal();
+        emit this->ota_session_presistence_signal();
     }
     if (this->driver->serialPort.isOpen()) {
         tm += " 串口状态：connect！";
