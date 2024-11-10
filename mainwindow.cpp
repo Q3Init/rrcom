@@ -185,14 +185,16 @@ void MainWindow::Inter_transmit(uint8 cmd,uint16 len,uint8 *data)
     QByteArray tx_datas;
     uint16 p_len = len + 1; /* add cmd len */
     interTpTransmitMsgBuf[0] = HeaderPattern[0];
-    interTpTransmitMsgBuf[1] = this->bcd_to_hex(ui->reqId_line_edit->text().toUInt());
+    interTpTransmitMsgBuf[1] = 0x11;//this->bcd_to_hex(ui->reqId_line_edit->text().toUInt());
     interTpTransmitMsgBuf[2] = (uint8)(p_len >> 8);
     interTpTransmitMsgBuf[3] = (uint8)(p_len);
     interTpTransmitMsgBuf[4] = cmd;
-    memcpy(interTpTransmitMsgBuf+5,data,len);
+    if (len != 0) {
+        memcpy(interTpTransmitMsgBuf+5,data,len);
+    }
     crc = this->cal_crc->apu_CRC16(interTpTransmitMsgBuf,len + 5);
-    interTpTransmitMsgBuf[len + 5] = (uint8)(crc >> 8);
-    interTpTransmitMsgBuf[len + 6] = (uint8)(crc);
+    interTpTransmitMsgBuf[len + 5] = (uint8)(crc );
+    interTpTransmitMsgBuf[len + 6] = (uint8)(crc >> 8);
     tx_datas.resize(len + 7);
     memcpy(tx_datas.data(),&interTpTransmitMsgBuf,len + 7);
     if (this->driver->serialPort.write(tx_datas) > 0) {
@@ -365,104 +367,70 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         qDebug() << "ota req id is failed!!!";
         return;
     }
+    if (info.datas[0] == 0x7F) {
+        if (info.datas[3] != OTA_PENDING) {
+            ui->ota_step_edit->insertPlainText("负响应....\r\n");
+            this->ota_timer->stop();
+            emit this->ota_ack_fail();
+        } else {
+            qDebug() << "OTA_PENDING";
+            ui->ota_step_edit->insertPlainText("正在等待....\r\n");
+            this->ota_timer->start(5000);
+        }
+    }
     switch(ota_step)
     {
     case OTA_EXTEND_SESSION:
         if (info.datas[0] == (ID_EXTEND_SESSION + 0x40))
         {
-            if(info.datas[1] == ACK_OK)
-            {
-                qDebug() << "OTA_EXTEND_SESSION";
-                this->ota_timer->start(5000);
-                emit this->ota_stop_communction_signal();
-                ota_step = OTA_STOP_COMMUNCTION;
-            }
-            else
-            {
-                this->ota_timer->stop();
-                emit this->ota_ack_fail();
-            }
+            qDebug() << "OTA_EXTEND_SESSION";
+            ui->ota_step_edit->insertPlainText("扩展会话Ok....\r\n");
+            this->ota_timer->start(5000);
+            emit this->ota_stop_communction_signal();
+            ota_step = OTA_STOP_COMMUNCTION;
         }
         break;
     case OTA_STOP_COMMUNCTION:
         if (info.datas[0] == (ID_STOP_COMMUNCTION + 0x40))
         {
-            if(info.datas[1] == ACK_OK)
-            {
-                this->ota_timer->start(5000);
-                emit this->ota_programming_session_signal();
-                ota_step = OTA_PROGRAMMING_SEESION;
-            }
-            else
-            {
-                this->ota_timer->stop();
-                emit this->ota_ack_fail();
-            }
+            this->ota_timer->start(5000);
+            ui->ota_step_edit->insertPlainText("停止通信Ok....\r\n");
+            emit this->ota_programming_session_signal();
+            ota_step = OTA_PROGRAMMING_SEESION;
         }
         break;
     case OTA_PROGRAMMING_SEESION:
         if (info.datas[0] == (ID_PROGRAMMING_SESSION + 0x40))
         {
-            if(info.datas[1] == ACK_OK)
-            {
-                this->ota_timer->start(5000);
-                emit this->ota_request_erase_signal();
-                ota_step = OTA_REQUEST_ERASE;
-            }
-            else
-            {
-                this->ota_timer->stop();
-                emit this->ota_ack_fail();
-            }
+            this->ota_timer->start(5000);
+            ui->ota_step_edit->insertPlainText("编程会话Ok....\r\n");
+            emit this->ota_request_erase_signal();
+            ota_step = OTA_REQUEST_ERASE;
         }
         break;
     case OTA_REQUEST_ERASE:
         if (info.datas[0] == (ID_REQUEST_ERASE + 0x40))
         {
-            if(info.datas[1] == ACK_OK)
-            {
-                this->ota_timer->start(5000);
-                emit this->ota_request_download_signal();
-                ota_step = OTA_REQUEST_DOWNLOAD;
-            }
-            else
-            {
-                this->ota_timer->stop();
-                emit this->ota_ack_fail();
-            }
+            this->ota_timer->start(5000);
+            emit this->ota_request_download_signal();
+            ota_step = OTA_REQUEST_DOWNLOAD;
         }
         break;
     case OTA_REQUEST_DOWNLOAD:
         if (info.datas[0] == (ID_REQUEST_DOWNLOAD + 0x40))
         {
-            if(info.datas[1] == ACK_OK)
-            {
-                this->ota_timer->start(5000);
-                emit this->ota_data_transmission_signal();
-                ota_step = OTA_DATA_TRANSMISSION;
-            }
-            else
-            {
-                this->ota_timer->stop();
-                emit this->ota_ack_fail();
-            }
+            this->ota_timer->start(5000);
+            emit this->ota_data_transmission_signal();
+            ota_step = OTA_DATA_TRANSMISSION;
         }
         break;
     case OTA_DATA_TRANSMISSION:
         if (info.datas[0] == (ID_DATA_TRANSMISSION + 0x40))
         {
-            if(info.datas[1] == ACK_OK)
-            {
-                this->ota_timer->start(5000);
-                if (data_transmission_comlete_flag== TRUE) {
-                    emit this->ota_transmission_exit_signal();
-                    ota_step = OTA_TRANSMISSION_EXIT;
-                }
-            }
-            else
-            {
-                this->ota_timer->stop();
-                emit this->ota_ack_fail();
+            this->ota_timer->start(5000);
+            if (data_transmission_comlete_flag== TRUE) {
+                emit this->ota_transmission_exit_signal();
+                ota_step = OTA_TRANSMISSION_EXIT;
             }
         }
         break;
@@ -470,64 +438,33 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
         data_transmission_comlete_flag = FALSE;
         if (info.datas[0] == (ID_TRANSMISSION_EXIT + 0x40))
         {
-            if(info.datas[1] == ACK_OK)
-            {
-                this->ota_timer->start(5000);
-                emit this->ota_check_app_integrity_signal();
-                ota_step = OTA_CHECK_APP_INTEGRITY;
-            }
-            else
-            {
-                this->ota_timer->stop();
-                emit this->ota_ack_fail();
-            }
+            this->ota_timer->start(5000);
+            emit this->ota_check_app_integrity_signal();
+            ota_step = OTA_CHECK_APP_INTEGRITY;
         }
         break;
     case OTA_CHECK_APP_INTEGRITY:
         if (info.datas[0] == (ID_CHECK_APP_INTEGRITY + 0x40))
         {
-            if(info.datas[1] == ACK_OK)
-            {
-                this->ota_timer->start(5000);
-                emit this->ota_software_reset_signal();
-                ota_step = OTA_SOFTWARE_RESET;
-            }
-            else
-            {
-                this->ota_timer->stop();
-                emit this->ota_ack_fail();
-            }
+            this->ota_timer->start(5000);
+            emit this->ota_software_reset_signal();
+            ota_step = OTA_SOFTWARE_RESET;
         }
         break;
     case OTA_SOFTWARE_RESET:
         if (info.datas[0] == (ID_SOFTWARE_RESET + 0x40))
         {
-            if(info.datas[1] == ACK_OK)
-            {
-                this->ota_timer->start(5000);
-                emit this->ota_start_communction_signal();
-                ota_step = OTA_SOFTWARE_RESET;
-            }
-            else
-            {
-                this->ota_timer->stop();
-                emit this->ota_ack_fail();
-            }
+            this->ota_timer->start(5000);
+            emit this->ota_start_communction_signal();
+            ota_step = OTA_SOFTWARE_RESET;
         }
         break;
     case OTA_START_COMMUNCTION:
         if (info.datas[0] == (ID_START_COMMUNCTION + 0x40))
         {
-            if(info.datas[1] == ACK_OK)
-            {
-                this->ota_timer->stop();
-                emit this->ota_ack_fail();
-            }
-            else
-            {
-                this->ota_timer->stop();
-                emit this->ota_ack_fail();
-            }
+            this->ota_timer->stop();
+            emit this->ota_ack_fail();
+            qDebug() << " ota success!!!";
         }
         break;
     default:
@@ -539,17 +476,19 @@ void MainWindow::ota_mainfunction(InterTpMsgType datas)
 void MainWindow::ota_extend_session()
 {
     qDebug() << "[ota_extend_session]"<< Qt::endl;
-    uint16 len = 1;
-    uint8 data = 1;
+    ui->ota_step_edit->insertPlainText("请求扩展会话\r\n");
+    uint16 len = 0;
+    uint8 data = 0;
     emit this->inter_tx_signal(ID_EXTEND_SESSION ,len ,&data);
 }
 
 /* 停止设备通信功能函数 */
 void MainWindow::ota_stop_communction()
 {
-    qDebug() << "[ota_stop_communction_signal]"<< Qt::endl;
+    qDebug() << "[ota_stop_communction]"<< Qt::endl;
+    ui->ota_step_edit->insertPlainText("请求通信会话\r\n");
     uint16 len = 1;
-    uint8 data = 2;
+    uint8 data = 1;
     emit this->inter_tx_signal(ID_STOP_COMMUNCTION ,len ,&data);
 }
 
@@ -557,6 +496,7 @@ void MainWindow::ota_stop_communction()
 void MainWindow::ota_programming_session()
 {
     qDebug() << "[ota_programming_session]"<< Qt::endl;
+    ui->ota_step_edit->insertPlainText("请求编程会话\r\n");
     uint16 len = 1;
     uint8 data = 3;
     emit this->inter_tx_signal(ID_PROGRAMMING_SESSION ,len ,&data);
@@ -566,6 +506,7 @@ void MainWindow::ota_programming_session()
 void MainWindow::ota_request_erase()
 {
     qDebug() << "[ota_request_erase]"<< Qt::endl;
+    ui->ota_step_edit->insertPlainText("请求擦除\r\n");
     QString line = 0;
     QString hexdata = 0;
     addressType hex_address = {0};
@@ -693,7 +634,7 @@ void MainWindow::ota_start_communction()
     emit this->inter_tx_signal(ID_START_COMMUNCTION ,len ,&data);
 }
 
-/* 软件复位功能函数 */
+/* 会话保持功能函数 */
 void MainWindow::ota_session_presistence()
 {
     qDebug() << "[ota_session_presistence]"<< Qt::endl;
@@ -766,6 +707,7 @@ uint32 MainWindow::bcd_to_hex(uint32 bcd_data)
 void MainWindow::ota_timeout_function()
 {
     qDebug("ota_timeout_function");
+    ui->ota_step_edit->insertPlainText("ota失败....\r\n");
     ota_step = OTA_EXTEND_SESSION;
     file_seek_cnt = 0;
     data_transmission_comlete_flag = FALSE;
@@ -777,6 +719,9 @@ void MainWindow::ota_timeout_function()
 void MainWindow::mainwindow_timeout_function()
 {
     QString tm = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+    if (this->ota_flag == TRUE) {
+        // emit this->ota_session_presistence_signal();
+    }
     if (this->driver->serialPort.isOpen()) {
         tm += " 串口状态：connect！";
     }

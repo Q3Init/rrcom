@@ -10,6 +10,7 @@
 #include <QFile>
 #include <QTimer>
 
+/* Data frame configuration */
 #define HEADER_CNT 1
 #define ID_CNT 1
 #define CMD_CNT 1
@@ -17,21 +18,21 @@
 #define DATAS_CNT 1
 #define CRC_BYTE_CNT 2
 
-#define ACK_OK 0x55
-#define ACK_N_OK 0xAA
-
-#define ID_EXTEND_SESSION       0xA3
-#define ID_STOP_COMMUNCTION     0xA4
-#define ID_PROGRAMMING_SESSION  0xA2
-#define ID_REQUEST_ERASE        0xA5
+/* ota service */
+#define ID_EXTEND_SESSION       0x03
+#define ID_STOP_COMMUNCTION     0x04
+#define ID_PROGRAMMING_SESSION  0x02
+#define ID_REQUEST_ERASE        0x05
 #define ID_REQUEST_DOWNLOAD     0x06
-#define ID_DATA_TRANSMISSION    0xA7
-#define ID_TRANSMISSION_EXIT    0xA8
-#define ID_CHECK_APP_INTEGRITY  0xA9
-#define ID_SOFTWARE_RESET       0xAA
-#define ID_START_COMMUNCTION    0xAB
+#define ID_DATA_TRANSMISSION    0x07
+#define ID_TRANSMISSION_EXIT    0x08
+#define ID_CHECK_APP_INTEGRITY  0x09
+#define ID_SOFTWARE_RESET       0x0A
+#define ID_START_COMMUNCTION    0x0B
 #define ID_SESSION_PERSISTENCE  0x3E
 
+/* Negative response code */
+#define OTA_PENDING 0x78
 
 typedef enum
 {
